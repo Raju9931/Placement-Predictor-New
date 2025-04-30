@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 type AuthContextType = {
   user: User | null;
   loading: boolean;
+  isSupabaseConfigured: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -17,13 +18,30 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Check if Supabase is properly configured
+  const isSupabaseConfigured = Boolean(
+    import.meta.env.VITE_SUPABASE_URL && 
+    import.meta.env.VITE_SUPABASE_ANON_KEY
+  );
 
   useEffect(() => {
+    // Skip Supabase initialization if not configured
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
+    
     // Get initial session
     const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
-      setLoading(false);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user || null);
+      } catch (error) {
+        console.error("Error getting session:", error);
+      } finally {
+        setLoading(false);
+      }
     };
     
     getInitialSession();
@@ -36,9 +54,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [isSupabaseConfigured]);
 
   const signIn = async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      toast.error('Supabase is not configured');
+      throw new Error('Supabase is not configured');
+    }
+    
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       
@@ -52,6 +75,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
+    if (!isSupabaseConfigured) {
+      toast.error('Supabase is not configured');
+      throw new Error('Supabase is not configured');
+    }
+    
     try {
       const { error: signUpError, data } = await supabase.auth.signUp({ 
         email, 
@@ -84,6 +112,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    if (!isSupabaseConfigured) {
+      toast.error('Supabase is not configured');
+      return;
+    }
+    
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
@@ -94,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, isSupabaseConfigured, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
