@@ -1,8 +1,9 @@
 
 import { StudentData, PredictionData, FeatureContribution } from './types';
+import { supabase } from './supabase';
 
 // This would normally be handled by an actual ML model on a server
-export const makePrediction = (data: StudentData): PredictionData => {
+export const makePrediction = async (data: StudentData): Promise<PredictionData> => {
   // Calculate a mock placement probability based on the input data
   let placementScore = 0;
   
@@ -140,7 +141,7 @@ export const makePrediction = (data: StudentData): PredictionData => {
     }
   });
   
-  return {
+  const predictionResult = {
     placementProbability: normalizedScore,
     confidenceScore: 85, // In a real model, this would be the model's confidence
     topPositiveFeatures: positiveFeatures,
@@ -148,4 +149,51 @@ export const makePrediction = (data: StudentData): PredictionData => {
     overallExplanation,
     recommendedActions
   };
+
+  return predictionResult;
+};
+
+// Save prediction to database
+export const savePrediction = async (studentData: StudentData, predictionData: PredictionData) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+  
+  const { data, error } = await supabase
+    .from('prediction_history')
+    .insert({
+      user_id: user.id,
+      student_data: studentData,
+      prediction_data: predictionData
+    })
+    .select();
+    
+  if (error) {
+    throw error;
+  }
+    
+  return data;
+};
+
+// Get prediction history for current user
+export const getPredictionHistory = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+  
+  const { data, error } = await supabase
+    .from('prediction_history')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+    
+  if (error) {
+    throw error;
+  }
+    
+  return data;
 };

@@ -1,21 +1,75 @@
 
 import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import StudentForm from '@/components/StudentForm';
 import PredictionResult from '@/components/PredictionResult';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { StudentData, PredictionData } from '@/lib/types';
-import { makePrediction } from '@/lib/predictionService';
+import { makePrediction, savePrediction } from '@/lib/predictionService';
+import { useAuth } from '@/context/AuthContext';
+import { toast } from 'sonner';
 
 const Index = () => {
   const [predictionResult, setPredictionResult] = useState<PredictionData | null>(null);
+  const [studentData, setStudentData] = useState<StudentData | null>(null);
   const [activeTab, setActiveTab] = useState<string>("input");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { user } = useAuth();
 
-  const handleSubmitData = (data: StudentData) => {
-    // In a real app, this would call an API endpoint to get a prediction
-    const result = makePrediction(data);
-    setPredictionResult(result);
-    setActiveTab("results");
+  const handleSubmitData = async (data: StudentData) => {
+    setLoading(true);
+    try {
+      // Store student data for later use if user wants to save
+      setStudentData(data);
+      
+      // Get prediction
+      const result = await makePrediction(data);
+      setPredictionResult(result);
+      setActiveTab("results");
+      
+      // If user is logged in, automatically save the prediction
+      if (user) {
+        await savePrediction(data, result);
+        toast.success('Prediction saved to your account');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to generate prediction');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSavePrediction = async () => {
+    if (!user) {
+      toast('Please sign in to save your prediction', {
+        action: {
+          label: 'Sign In',
+          onClick: () => navigate('/auth')
+        }
+      });
+      return;
+    }
+
+    if (!studentData || !predictionResult) {
+      toast.error('No prediction data to save');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await savePrediction(studentData, predictionResult);
+      toast.success('Prediction saved successfully');
+      navigate('/dashboard');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to save prediction');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -23,7 +77,17 @@ const Index = () => {
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-prediction-primary">Placement Compass</h1>
-          <p className="text-gray-500 text-sm">Transparent Placement Predictions</p>
+          <div className="flex gap-4">
+            {user ? (
+              <Button variant="outline" asChild>
+                <Link to="/dashboard">Dashboard</Link>
+              </Button>
+            ) : (
+              <Button variant="outline" asChild>
+                <Link to="/auth">Sign In</Link>
+              </Button>
+            )}
+          </div>
         </div>
       </header>
       
@@ -42,10 +106,23 @@ const Index = () => {
                 <TabsTrigger value="results" disabled={!predictionResult}>Prediction Results</TabsTrigger>
               </TabsList>
               <TabsContent value="input" className="p-6">
-                <StudentForm onSubmitData={handleSubmitData} />
+                <StudentForm onSubmitData={handleSubmitData} isLoading={loading} />
               </TabsContent>
               <TabsContent value="results" className="p-6">
-                {predictionResult && <PredictionResult data={predictionResult} />}
+                {predictionResult && (
+                  <>
+                    <PredictionResult data={predictionResult} />
+                    <div className="mt-6 flex justify-end">
+                      <Button 
+                        onClick={handleSavePrediction} 
+                        disabled={loading}
+                        className="bg-prediction-primary hover:bg-prediction-primary/90"
+                      >
+                        {loading ? 'Saving...' : user ? 'Save to Dashboard' : 'Sign In to Save'}
+                      </Button>
+                    </div>
+                  </>
+                )}
               </TabsContent>
             </Tabs>
           </CardContent>

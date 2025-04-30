@@ -9,9 +9,10 @@ import { Card } from '@/components/ui/card';
 
 interface StudentFormProps {
   onSubmitData: (data: StudentData) => void;
+  isLoading?: boolean;
 }
 
-const StudentForm = ({ onSubmitData }: StudentFormProps) => {
+const StudentForm = ({ onSubmitData, isLoading = false }: StudentFormProps) => {
   const [formData, setFormData] = useState<StudentData>({
     name: '',
     gpa: 7.0,
@@ -223,8 +224,12 @@ const StudentForm = ({ onSubmitData }: StudentFormProps) => {
             </div>
             
             <div className="pt-4">
-              <Button type="submit" className="w-full bg-prediction-primary hover:bg-prediction-primary/90">
-                Get Placement Prediction
+              <Button 
+                type="submit" 
+                className="w-full bg-prediction-primary hover:bg-prediction-primary/90"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Processing...' : 'Get Placement Prediction'}
               </Button>
             </div>
           </div>
