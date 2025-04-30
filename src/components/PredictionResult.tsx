@@ -4,21 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { useState } from 'react';
-import { 
-  Chart,
-  Tooltip,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Legend,
-  Title,
-  Tooltip as ChartTooltip
-} from 'chart.js';
 import { Bar } from 'recharts';
 import FeatureImpactChart from '@/components/FeatureImpactChart';
-
-// Register Chart.js components
-Chart.register(CategoryScale, LinearScale, BarElement, Legend, Title, ChartTooltip, Tooltip);
 
 interface PredictionResultProps {
   data: PredictionData;
